@@ -68,8 +68,8 @@ The table below summarizes our findings:
 | AWS       | standard              | 1913  | 99         | 87          |
 |           | gp2                   | 3634  | 103        | 92          |
 |           | io1 (1000 IOPS)       | 1210  | 102        | 94          |
-| Azure     | Standard 20 GiB cache | 8219  | 44         | 60          |
-|           | Premium 256 GiB cache | 7849  | 43         | 57          |
+| Azure     | Standard 20 GiB       | 121   | 28         | 15          |
+|           | Premium 256 GiB       | 1106  | 106        | 90          |
 | Google    | pd-standard 20 GiB    |  162  | 74         | 43          |
 |           | pd-standard 256 GiB   |  239  | 78         | 65          |
 |           | pd-ssd 20 GiB         |  6150 | 29         | 27          |
@@ -113,11 +113,13 @@ equal, the bigger disk will have better performance, and we see that reflected
 in the scoring: the 256 GiB Google SSD disk leads the pack, but the 20 GiB disk
 lands squarely in the middle.
 
-While we're on the topic of Google, its standard drive has the worst performance
-of any IaaS storage where IOPS is concerned. The 256 GiB standard drive has an
-IOPS of 239, the 20 GiB, 162. Note that these numbers aren't bad for magnetic
-disk storage, it's just that they seem lackluster when compared to the other
-IaaSes' storage offerings.
+While we're on the topic of Google, its standard drive takes two of three worst
+slots of IOPS performance. The 256 GiB standard drive has an IOPS of 239, the 20
+GiB, 162. Note that these numbers aren't bad for magnetic disk storage (a
+typical magnetic hard drive will have
+[75-150](https://en.wikipedia.org/wiki/IOPS#Mechanical_hard_drives) IOPS), it's
+just that they seem lackluster when compared to the other IaaSes' storage
+offerings.
 
 AWS's io1 storage is a "tunable" storage offering — you specify the number of
 IOPS you require. In our benchmarks we specified 1,000 IOPS, and we were pleased
@@ -150,12 +152,12 @@ src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTddYLAn6UFpesWIPH5S6ptr9sm
 
 ### 4.0 AWS
 
-- AWS gp2 is a good overall choice; io1 storage is poor value unless one needs
-  IOPS and throughput greater than what gp2 storage offers. Per AWS's
-  [website](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html),
-  _"[io1 should be used for] Critical business applications that require
-  sustained IOPS performance, or more than 10,000 IOPS or 160 MiB/s of
-  throughput per volume"_
+AWS gp2 is a good overall choice; io1 storage is poor value unless one needs
+IOPS and throughput greater than what gp2 storage offers. Per AWS's
+[website](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html),
+_"[io1 should be used for] Critical business applications that require sustained
+IOPS performance, or more than 10,000 IOPS or 160 MiB/s of throughput per
+volume"_
 
 ### 4.1 The Performance of Azure
 
@@ -205,6 +207,44 @@ We used the following instance types for each of the IaaSes:
 | vSphere   | N/A             | 8       | 8           | FreeNAS         |
 |           |                 |         |             | SATA SSD        |
 |           |                 |         |             | NVMe SSD        |
+
+For those interested in replicating our tests or reproducing our results, our
+BOSH manifests and Cloud Configs can be found
+[here](https://github.com/cunnie/deployments/tree/ec60ce4a2601d3395fbeab103db8fb7275004876/gobonniego).
+
+We spun up a VM, and ran the benchmark ten times in succession, storing the
+[results](https://github.com/cunnie/freenas_benchmarks/tree/9c0cecdb7de3d8a5fe7347f6fbec718786d4400f/gobonniego-1.0.7)
+in JSON format (i.e. we passed the arguments `-runs 10 -json` to GoBonnieGo).
+The numbers displayed in the charts and tables are the _averages_ of the ten
+runs.
+
+Each VM was configured with a [BOSH persistent
+disk](https://bosh.io/docs/persistent-disks.html) of a certain type (e.g. Google
+SSD 256 GiB). We instructed GoBonnieGo to exercise the persistent disk (not the
+root nor the ephemeral disks) (i.e. we passed the argument `-dir
+/var/vcap/store/gobonniego` to GoBonnieGo).
+
+Each GoBonnieGo run consists of the following steps:
+
+- A write test, which creates a set of files consisting of random data whose
+aggregate size equals twice the physical RAM of the VM (e.g. for the AWS test,
+which used a c4.xlarge instance type with 7.5 GiB, GoBonnieGo created a set of
+files whose footprint was 15 GiB). The throughput (write MB/s) is calculated by
+taking the total amount written (e.g. 15 GiB) and dividing by the time it takes
+to write that amount.
+- At that point, GoBonnieGo clears the buffer cache to avoid skewing the upcoming
+read benchmark.
+- A read test, which reads the files created by the write test. Again, the
+throughput (read MB/s) is calculated by taking the total amount read (e.g. 15
+GiB) and dividing by the time it takes to read that amount.
+- GoBonnieGo clears the buffer cache again, to avoid skewing the upcoming IOPS
+benchmark.
+- Finally, GoBonnieGo runs an IOPS test, where it randomly seeks to locations in
+the test files, and then either reads or writes a 512-byte block (with a 9:1
+ratio of reads to writes). It runs the test for approximately 5 seconds, and at
+the end tallies up the total number of reads & writes and divides by the
+duration.
+- GoBonnieGo then deletes its test files and records its results.
 
 ### 5.0 Cores, Preferably 8
 
