@@ -136,8 +136,8 @@ data (e.g. video servers). It's also useful for applications which fling disk
 images around (e.g. BOSH Directors).
 
 Once again we see Google's 256 GiB SSD leading the pack, and vSphere's iSCSI
-FreeNAS server not far behind (never underestimate the throughput of 7 magnetic
-drives writing in parallel).
+FreeNAS server not far behind (never underestimate the throughput of seven
+magnetic drives writing in parallel).
 
 Interestingly the read performance of AWS is fairly consistent across all three
 of its offerings (standard, gp2, io1), which leads to the conclusion that if
@@ -179,14 +179,44 @@ src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTddYLAn6UFpesWIPH5S6ptr9sm
 
 ### 4.0 AWS
 
+AWS storage options are noted more for their similarity than for their differences:
+
+{{< responsive-figure
+src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTddYLAn6UFpesWIPH5S6ptr9sm3ECcHxf5aYobpfKqT1pdp8IyTZu4D9yV7SOmwQEVkhgwpy5xnlUW/pubchart?oid=1176347302&format=image" >}}
+
+Amazon differs from Azure and Google in that it doesn't scale performance to the
+size of the drive. Looking at the chart above, it would be difficult to
+distinguish the 20 GiB standard drive from the 256 GiB standard drive from the
+performance numbers alone. Indeed, one might be surprised to discover that the
+bigger drive has slightly _worse_ performance than the smaller one (which (the
+difference in performance) we discount as being statistically insignificant).
+
+IOPS seems to be the real differentiator, not throughput, for the throughput
+numbers are very similar across storage types (though gp2's throughput is
+marginally faster than standard's).
+
 AWS gp2 is a good overall choice; io1 storage is poor value unless one needs
-IOPS and throughput greater than what gp2 storage offers. Per AWS's
+more than 4,000 4k IOPS and throughput greater than what gp2 storage offers. Per
+AWS's
 [website](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html),
 _"[io1 should be used for] Critical business applications that require sustained
 IOPS performance, or more than 10,000 IOPS or 160 MiB/s of throughput per
 volume"_
 
-### 4.1 The Performance of Azure
+The difference between Amazon's "[Previous
+Generation](https://aws.amazon.com/ebs/previous-generation/)" standard storage
+and its gp2 storage is mostly IOPS, for half the price ($0.05/GB-month vs.
+$0.10/GB-month at the time of this writing) standard offers half the IOPS (1913
+vs. 3634), with almost identical throughput numbers. Save your money if you need
+the storage but not the IOPS.
+
+Never one to be intimidated by complexity, AWS has a
+[baroque](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html#IOcredit)
+credit system for its gp2's performance which tilts the field in favor of VMs
+that are spun up briefly to run benchmarks such as GoBonnieGo — a long-running
+VM with heavy disk usage may not see the performance reflected in our results.
+
+### 4.1 Azure
 
 We could find no difference in performance between Azure Standard Managed
 Disks and Azure Premium Managed Disks
