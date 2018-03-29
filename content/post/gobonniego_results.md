@@ -179,21 +179,27 @@ src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTddYLAn6UFpesWIPH5S6ptr9sm
 
 ### 4.0 AWS
 
-AWS storage options are noted more for their similarity than for their differences:
+AWS storage options are noted more for their similarity than for their differences.
+
+A note about the chart below: The storage type (e.g. "io1 20 GiB") is denoted on
+the horizontal axis at the bottom. IOPS, represented in blue, are recorded on
+the axis on the _left_ (e.g. "io1 20 GiB" has an IOPS of 1210). Throughput, both
+read and write, are recorded on the axis on the _right_ (e.g. "io1 20 GiB" has a
+read throughput of 94 MB/s).
 
 {{< responsive-figure
-src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTddYLAn6UFpesWIPH5S6ptr9sm3ECcHxf5aYobpfKqT1pdp8IyTZu4D9yV7SOmwQEVkhgwpy5xnlUW/pubchart?oid=1176347302&format=image" >}}
+src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTddYLAn6UFpesWIPH5S6ptr9sm3ECcHxf5aYobpfKqT1pdp8IyTZu4D9yV7SOmwQEVkhgwpy5xnlUW/pubchart?oid=1774206212&format=image" >}}
 
 Amazon differs from Azure and Google in that it doesn't scale performance to the
 size of the drive. Looking at the chart above, it would be difficult to
 distinguish the 20 GiB standard drive from the 256 GiB standard drive from the
 performance numbers alone. Indeed, one might be surprised to discover that the
-bigger drive has slightly _worse_ performance than the smaller one (which (the
-difference in performance) we discount as being statistically insignificant).
+bigger drive has slightly _worse_ performance than the smaller one (which  we
+discount as being statistically insignificant).
 
-IOPS seems to be the real differentiator, not throughput, for the throughput
-numbers are very similar across storage types (though gp2's throughput is
-marginally faster than standard's).
+IOPS seems to be the real differentiator, not throughput (the throughput numbers
+are very similar across storage types, though gp2's throughput is marginally
+faster than standard's).
 
 AWS gp2 is a good overall choice; io1 storage is poor value unless one needs
 more than 4,000 4k IOPS and throughput greater than what gp2 storage offers. Per
@@ -210,6 +216,9 @@ $0.10/GB-month at the time of this writing) standard offers half the IOPS (1913
 vs. 3634), with almost identical throughput numbers. Save your money if you need
 the storage but not the IOPS.
 
+AWS's write throughput consistently outperforms its read throughput, which may
+indicate their storage backend uses write-caching.
+
 Never one to be intimidated by complexity, AWS has a
 [baroque](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html#IOcredit)
 credit system for its gp2's performance which tilts the field in favor of VMs
@@ -218,9 +227,42 @@ VM with heavy disk usage may not see the performance reflected in our results.
 
 ### 4.1 Azure
 
-We could find no difference in performance between Azure Standard Managed
-Disks and Azure Premium Managed Disks
-<sup><a href="#samsung">[Samsung]</a></sup>
+<div class="alert alert-success" role="alert">
+
+If you want IOPS on your Azure VMs, we strongly encourage you to set your
+<b>Premium Storage disk caching</b> to <i>ReadOnly</i> at a minimum,
+<i>ReadWrite</i> if your application can stomach the loss of writes (but don't
+do this for databases).
+
+</div>
+
+The biggest single factor in IOPS for Azure disks is [Disk Caching](
+https://docs.microsoft.com/en-us/azure/virtual-machines/windows/premium-storage-performance#disk-caching).
+But don't take our word for it — look at our results below:
+
+{{< responsive-figure
+src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTddYLAn6UFpesWIPH5S6ptr9sm3ECcHxf5aYobpfKqT1pdp8IyTZu4D9yV7SOmwQEVkhgwpy5xnlUW/pubchart?oid=651613620&format=image" >}}
+
+How to read the chart: The horizontal axis denotes the storage type. The first
+two letters of the storage type are either "st" or "pr", denoting Azure Standard
+storage and Azure Premium storage, respectively. The second part is a number,
+either 20 or 256 representing the size of the disk in GiB. Finally, the optional
+suffix "rw" means that _ReadWrite_ caching was enabled on that disk. To tie it
+all together with an example, "pr 256 rw" means that the benchmark was performed on a 256 GiB drive of Azure Premium storage with _ReadWrite_ caching.
+
+IOPS, represented in blue, are recorded on the axis on the _left_ (e.g. "st 20
+rw" has an IOPS of 8219). Throughput, both read and write, are recorded on the
+axis on the _right_ (e.g. "pr 256" has a read throughput of 90 MB/s).
+
+We could find **no difference in performance between Azure Standard Managed
+Disks and Azure Premium Managed Disks** — the results for "st 20" match the
+results for "pr 20", the results for "st 256" match the results for "pr 256". We
+assumed an error in our configurations, but in spite of checking several times
+we could find no mistake.
+
+However, the size the of disk made a big difference _as long as caching wasn't
+enabled_.
+
 
 - Azure Premium storage offers little value for smaller disks (e.g. 32 GiB);
   in those cases, go with the less-expensive Standard storage for equivalent
